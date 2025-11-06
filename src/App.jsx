@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import SummaryCards from './components/SummaryCards';
 import StudentManager from './components/StudentManager';
 import AttendanceManager from './components/AttendanceManager';
 import AgendaManager from './components/AgendaManager';
 import GradesManager from './components/GradesManager';
-import { School, Home, Users, CheckCircle2, Calendar, GraduationCap } from 'lucide-react';
+import { School, Home, Users, CheckCircle2, Calendar, GraduationCap, LogIn } from 'lucide-react';
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -19,11 +19,34 @@ const MENUS = [
 ];
 
 export default function App() {
-  // Data demo (belum persisten). Backend bisa ditambahkan untuk simpan permanen.
+  const apiBase = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+
+  // Local demo state (frontend). Backend integration buttons are available in header.
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState([]); // { studentId, date, status }
   const [agendas, setAgendas] = useState([]); // { id, title, date }
   const [activeMenu, setActiveMenu] = useState('dashboard');
+
+  // Backend status + simple login
+  const [backendStatus, setBackendStatus] = useState('');
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [token, setToken] = useState('');
+
+  useEffect(() => {
+    if (!apiBase) return;
+    fetch(`${apiBase}/test`).then(r => r.json()).then(setBackendStatus).catch(() => setBackendStatus(''));
+  }, [apiBase]);
+
+  const doLogin = async () => {
+    if (!apiBase) return;
+    const res = await fetch(`${apiBase}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginForm),
+    });
+    const data = await res.json();
+    if (data?.token) setToken(data.token);
+  };
 
   // CRUD Students
   const addStudent = (data) => {
@@ -71,7 +94,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-indigo-50">
       <header className="sticky top-0 z-10 bg-white/70 backdrop-blur border-b">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-600 text-white"><School size={18}/></span>
             <h1 className="font-semibold text-gray-900">Dashboard Absensi SD</h1>
@@ -87,6 +110,30 @@ export default function App() {
               </button>
             ))}
           </nav>
+          <div className="hidden md:flex items-center gap-2">
+            <input
+              className="border rounded px-2 py-1 text-sm"
+              placeholder="Username"
+              value={loginForm.username}
+              onChange={(e)=>setLoginForm({...loginForm, username: e.target.value})}
+            />
+            <input
+              className="border rounded px-2 py-1 text-sm"
+              placeholder="Password"
+              type="password"
+              value={loginForm.password}
+              onChange={(e)=>setLoginForm({...loginForm, password: e.target.value})}
+            />
+            <button onClick={doLogin} className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded text-sm"><LogIn size={14}/> Login</button>
+            {token && <span className="text-xs text-emerald-700">Token aktif</span>}
+          </div>
+        </div>
+        <div className="max-w-6xl mx-auto px-4 pb-3">
+          {apiBase ? (
+            <p className="text-xs text-gray-500">Backend: {typeof backendStatus === 'object' ? backendStatus.database : 'cek...' } • {apiBase}</p>
+          ) : (
+            <p className="text-xs text-red-600">VITE_BACKEND_URL belum di-set</p>
+          )}
         </div>
       </header>
 
@@ -130,6 +177,7 @@ export default function App() {
             students={students}
             attendance={attendanceByDate}
             onMark={markAttendance}
+            apiBase={apiBase}
           />
         )}
 
@@ -152,7 +200,7 @@ export default function App() {
       </main>
 
       <footer className="py-8 text-center text-xs text-gray-500">
-        Dibuat untuk kebutuhan demo administrasi guru SD — data belum tersimpan permanen.
+        Dibuat untuk kebutuhan demo administrasi guru SD — data belum tersimpan permanen. Sudah tersedia API untuk simpan permanen.
       </footer>
     </div>
   );
